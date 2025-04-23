@@ -175,6 +175,21 @@ class Pilmoji:
             stream.seek(0)
             return stream
 
+    # this function was removed from pillow somewhere around 11.2
+    # this is the same functin that pillow used
+    # https://github.com/python-pillow/Pillow/blob/main/LICENSE
+    def _multiline_spacing(
+        self,
+        font: ImageFont.ImageFont | ImageFont.FreeTypeFont | ImageFont.TransposedFont,
+        spacing: float,
+        stroke_width: float,
+    ) -> float:
+        return (
+            self.draw.textbbox((0, 0), "A", font, stroke_width=stroke_width)[3]
+            + stroke_width
+            + spacing
+        )
+
     def getsize(
         self,
         text: str,
@@ -300,7 +315,7 @@ class Pilmoji:
         original_x = x
         nodes = to_nodes(text)
         # get the distance between lines ( will be add to y between each line )
-        line_spacing = self.draw._multiline_spacing(font, spacing, stroke_width)
+        line_spacing = self._multiline_spacing(font, spacing, stroke_width)
 
         # I change a part of the logic of text writing because it couldn't work "the same as PIL" if I didn't
         nodes_line_to_print = []
