@@ -27,17 +27,16 @@ with open('pilmoji/__init__.py') as fp:
 
 
 setup(
-    name='pilmoji',
+    name='pilmoji-cached',
     author=author,
-    url='https://github.com/jay3332/pilmoji',
+    url='https://github.com/amiralimollaei/pilmoji-cached',
     project_urls={
-        "Issue tracker": "https://github.com/jay3332/pilmoji",
-        "Discord": "https://discord.gg/FqtZ6akWpd"
+        "Issue tracker": "https://github.com/amiralimollaei/pilmoji-cached",
     },
     version=version,
-    packages=['pilmoji'],
+    packages=['pilmoji-cached'],
     license='MIT',
-    description="Pilmoji is an emoji renderer for Pillow, Python's imaging library.",
+    description="Pilmoji-cached is an emoji renderer for Pillow, Python's imaging library.",
     long_description=readme,
     long_description_content_type="text/markdown",
     include_package_data=True,
@@ -51,8 +50,10 @@ setup(
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Topic :: Internet',
         'Topic :: Software Development :: Libraries',
         'Topic :: Software Development :: Libraries :: Python Modules',

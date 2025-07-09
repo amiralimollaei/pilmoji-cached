@@ -1,22 +1,23 @@
 from abc import ABC, abstractmethod
 from io import BytesIO
 
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError
 from urllib.parse import quote_plus
+
+import os
+import hashlib
+import asyncio
+import logging
 
 from typing import Any, ClassVar, Dict, Optional
 
-try:
-    import requests
-    _has_requests = True
-except ImportError:
-    requests = None
-    _has_requests = False
+import aiofiles
+import aiohttp
+
 
 __all__ = (
     'BaseSource',
     'HTTPBasedSource',
+    'CachedHTTPBasedSource',
     'DiscordEmojiSourceMixin',
     'EmojiCDNSource',
     'TwitterEmojiSource',
@@ -37,12 +38,14 @@ __all__ = (
     'Openmoji',
 )
 
+CACHE_DIR = os.path.abspath(".cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 class BaseSource(ABC):
     """The base class for an emoji image source."""
 
     @abstractmethod
-    def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
+    async def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
         """Retrieves a :class:`io.BytesIO` stream for the image of the given emoji.
 
         Parameters
@@ -60,7 +63,7 @@ class BaseSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_discord_emoji(self, id: int, /) -> Optional[BytesIO]:
+    async def get_discord_emoji(self, id: int, /) -> Optional[BytesIO]:
         """Retrieves a :class:`io.BytesIO` stream for the image of the given Discord emoji.
 
         Parameters
@@ -88,15 +91,11 @@ class HTTPBasedSource(BaseSource):
         'headers': {'User-Agent': 'Mozilla/5.0'}
     }
 
-    def __init__(self) -> None:
-        if _has_requests:
-            self._requests_session = requests.Session()
+    def __init__(self):
+        self._session: aiohttp.ClientSession | None = None
 
-    def request(self, url: str) -> bytes:
+    async def request(self, url: str) -> BytesIO | None:
         """Makes a GET request to the given URL.
-
-        If the `requests` library is installed, it will be used.
-        If it is not installed, :meth:`urllib.request.urlopen` will be used instead.
 
         Parameters
         ----------
@@ -112,21 +111,21 @@ class HTTPBasedSource(BaseSource):
         Union[:class:`requests.HTTPError`, :class:`urllib.error.HTTPError`]
             There was an error requesting from the URL.
         """
-        if _has_requests:
-            with self._requests_session.get(url, **self.REQUEST_KWARGS) as response:
-                if response.ok:
-                    return response.content
+
+        assert self._session is not None, "Session must be initialized before making requests"
+
+        response = await self._session.get(url, timeout=aiohttp.ClientTimeout(total=10))
+        if response.ok:
+            return BytesIO(await response.content.read())
         else:
-            req = Request(url, **self.REQUEST_KWARGS)
-            with urlopen(req) as response:
-                return response.read()
+            raise aiohttp.ClientError(f'Failed to fetch emoji from {url}, status code: {response.status}')
 
     @abstractmethod
-    def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
+    async def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_discord_emoji(self, id: int, /) -> Optional[BytesIO]:
+    async def get_discord_emoji(self, id: int, /) -> Optional[BytesIO]:
         raise NotImplementedError
 
 
@@ -136,17 +135,17 @@ class DiscordEmojiSourceMixin(HTTPBasedSource):
     BASE_DISCORD_EMOJI_URL: ClassVar[str] = 'https://cdn.discordapp.com/emojis/'
 
     @abstractmethod
-    def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
+    async def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
         raise NotImplementedError
 
-    def get_discord_emoji(self, id: int, /) -> Optional[BytesIO]:
+    async def get_discord_emoji(self, id: int, /) -> Optional[BytesIO]:
         url = self.BASE_DISCORD_EMOJI_URL + str(id) + '.png'
-        _to_catch = HTTPError if not _has_requests else requests.HTTPError
 
         try:
-            return BytesIO(self.request(url))
-        except _to_catch:
-            pass
+            return await self.request(url)
+        except aiohttp.ClientError:
+            logging.critical(f'Failed to fetch Discord emoji with ID {id} from {url}')
+            raise
 
 
 class EmojiCDNSource(DiscordEmojiSourceMixin):
@@ -155,17 +154,16 @@ class EmojiCDNSource(DiscordEmojiSourceMixin):
     BASE_EMOJI_CDN_URL: ClassVar[str] = 'https://emojicdn.elk.sh/'
     STYLE: ClassVar[str] = None
 
-    def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
+    async def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
         if self.STYLE is None:
             raise TypeError('STYLE class variable unfilled.')
 
         url = self.BASE_EMOJI_CDN_URL + quote_plus(emoji) + '?style=' + quote_plus(self.STYLE)
-        _to_catch = HTTPError if not _has_requests else requests.HTTPError
-
         try:
-            return BytesIO(self.request(url))
-        except _to_catch:
-            pass
+            return await self.request(url)
+        except aiohttp.ClientError:
+            logging.critical(f'Failed to fetch Discord emoji with ID {id} from {url}')
+            raise
 
 
 class TwitterEmojiSource(EmojiCDNSource):
@@ -226,6 +224,50 @@ class EmojidexEmojiSource(EmojiCDNSource):
 class MozillaEmojiSource(EmojiCDNSource):
     """A source that uses Mozilla's emojis."""
     STYLE = 'mozilla'
+
+
+class CachedHTTPBasedSource(BaseSource):
+    """A wrapper for any HTTPBasedSource that caches emoji images in CACHE_DIR."""
+
+    def __init__(self, source: HTTPBasedSource) -> None:
+        if not isinstance(source, HTTPBasedSource):
+            raise TypeError('source must be an instance of HTTPBasedSource')
+        self._source = source
+
+    @property
+    def _session(self):
+        return self._source._session
+    
+    def _emoji_cache_path(self, emoji: str) -> str:
+        key = hashlib.sha256(emoji.encode('utf-8')).hexdigest()
+        return os.path.join(CACHE_DIR, f'{self._source.__class__.__name__}_{key}.png')
+
+    def _discord_cache_path(self, id: int) -> str:
+        return os.path.join(CACHE_DIR, f'discord_{id}.png')
+
+    async def get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
+        path = self._emoji_cache_path(emoji)
+        if os.path.exists(path):
+            async with aiofiles.open(path, 'rb') as f:
+                return BytesIO(await f.read())
+        data = await self._source.get_emoji(emoji)
+        if data is not None:
+            async with aiofiles.open(path, 'wb') as f:
+                await f.write(data.read())
+            data.seek(0)
+            return data
+
+    async def get_discord_emoji(self, id: int, /) -> Optional[BytesIO]:
+        path = self._discord_cache_path(id)
+        if os.path.exists(path):
+            async with aiofiles.open(path, 'rb') as f:
+                return BytesIO(await f.read())
+        data = await self._source.get_discord_emoji(id)
+        if data is not None:
+            async with aiofiles.open(path, 'wb') as f:
+                await f.write(data.read())
+            data.seek(0)
+            return data
 
 
 # Aliases

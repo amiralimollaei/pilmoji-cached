@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 
 from enum import Enum
@@ -7,9 +8,9 @@ from enum import Enum
 import emoji
 
 import PIL
-from PIL import ImageFont
+from PIL import ImageFont, Image
 
-from typing import Dict, Final, List, NamedTuple, TYPE_CHECKING, Tuple
+from typing import Dict, Final, List, NamedTuple, TYPE_CHECKING, Optional, Tuple
 
 if TYPE_CHECKING:
     from .core import FontT
@@ -118,7 +119,7 @@ def to_nodes(text: str, /) -> List[List[Node]]:
 
 def getsize(
     text: str,
-    font: FontT = None,
+    font: Optional[FontT] = None,
     *,
     spacing: int = 4,
     emoji_scale_factor: float = 1
@@ -165,3 +166,19 @@ def getsize(
             x = this_x
 
     return x, y - spacing
+
+async def paste_image_async(loop, base_image: Image.Image, overlay_image: Image.Image, box):
+    """
+    Asynchronously pastes an overlay image onto a base image.
+    """
+    def paste_sync():
+        try:
+            base_image.paste(overlay_image, box, overlay_image)
+            # You might want to save the image or return the modified image object
+            # For demonstration, we'll just return a success message
+            return "Image pasted successfully!"
+        except Exception as e:
+            return f"Error during pasting: {e}"
+
+    result = await loop.run_in_executor(None, paste_sync)
+    return result
