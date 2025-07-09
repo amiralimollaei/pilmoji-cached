@@ -21,25 +21,13 @@ overall performance by making some operations asynchronous
 
 ## Installation and Requirements
 
-You must have Python 3.8 or higher in order to install Pilmoji.
+You must have Python 3.10 or higher in order to install Pilmoji.
 
 Installation can be done with `pip`:
 
 ```shell
-pip install -U pilmoji
+pip install -U git+https://github.com/amiralimollaei/pilmoji-cached
 ```
-
-Optionally, you can add the `[requests]` option to install requests
-alongside Pilmoji:
-
-```shell
-pip install -U pilmoji[requests]
-```
-
-The option is not required, instead if `requests` is not installed,
-Pilmoji will fallback to use the builtin `urllib`.
-
-You may also install from Github.
 
 ## Usage
 
