@@ -7,7 +7,7 @@ Pilmoji comes equipped with support for both unicode emojis and Discord emojis.
 
 ## Pilmoji-cached
 
-Pilmoji-cached is a fork of Pilmoji that adds persistant caching to emojis and improves,
+Pilmoji-cached is a fork of Pilmoji that adds persistant caching to emojis and improves
 overall performance by making some operations asynchronous
 
 ## Features
@@ -50,10 +50,6 @@ with Image.new('RGB', (550, 80), (255, 255, 255)) as image:
     image.show()
 ```
 
-### Result
-
-![Example result](https://jay.has-no-bra.in/f/j4iEcc.png)
-
 ## Switching emoji sources
 
 As seen from the example, Pilmoji defaults to the `Twemoji` emoji source.
@@ -68,8 +64,6 @@ from pilmoji.source import MicrosoftEmojiSource
 with Pilmoji(source=MicrosoftEmojiSource) as pilmoji:
     ...
 ```
-
-![results](https://jay.has-no-bra.in/f/suPfj0.png)
 
 It is also possible to create your own emoji sources via subclass.
 
