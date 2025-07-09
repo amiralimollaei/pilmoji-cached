@@ -41,9 +41,6 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     install_requires=requirements,
-    extras_require={
-        'requests': ['requests']
-    },
     python_requires='>=3.8.0',
     classifiers=[
         'License :: OSI Approved :: MIT License',
