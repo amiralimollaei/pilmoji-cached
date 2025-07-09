@@ -34,7 +34,7 @@ setup(
         "Issue tracker": "https://github.com/amiralimollaei/pilmoji-cached",
     },
     version=version,
-    packages=['pilmoji-cached'],
+    packages=['pilmoji'],
     license='MIT',
     description="Pilmoji-cached is an emoji renderer for Pillow, Python's imaging library.",
     long_description=readme,
