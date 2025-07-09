@@ -44,8 +44,8 @@ I also support Discord emoji: <:rooThink:596576798351949847>
 with Image.new('RGB', (550, 80), (255, 255, 255)) as image:
     font = ImageFont.truetype('arial.ttf', 24)
 
-    with Pilmoji() as pilmoji:
-        pilmoji.new_draw(image).text((10, 10), my_string.strip(), (0, 0, 0), font)
+   async with Pilmoji() as pilmoji:
+        await pilmoji.new_draw(image).text((10, 10), my_string.strip(), (0, 0, 0), font)
 
     image.show()
 ```
@@ -61,7 +61,7 @@ set the `source` kwarg in the constructor to a source found in the
 ```py
 from pilmoji.source import MicrosoftEmojiSource
 
-with Pilmoji(source=MicrosoftEmojiSource) as pilmoji:
+async with Pilmoji(source=MicrosoftEmojiSource) as pilmoji:
     ...
 ```
 
